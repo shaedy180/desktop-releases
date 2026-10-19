@@ -37,6 +37,12 @@ jobs:
       RELEASE_KEY: ${{ secrets.DESKTOP_PUBLISH_SSH_KEY }}
       RELEASE_FINGERPRINT: ${{ secrets.DESKTOP_PUBLISH_HOST_FINGERPRINT }}
     steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v7
+        with: {node-version: 24}
+      - name: Require protected hosting before any promotion
+        run: node scripts/verify-release.mjs --gate
       - name: Publish only the approved staged release
         shell: bash
         run: |
@@ -50,20 +56,17 @@ jobs:
           printf '%s\n' "$RELEASE_KEY" > "$RUNNER_TEMP/release-key"
           ssh-keyscan -T 10 -t ed25519 "$RELEASE_HOST" > "$RUNNER_TEMP/release-hosts"
           test "$(ssh-keygen -lf "$RUNNER_TEMP/release-hosts" -E sha256 | awk '{print $2}')" = "$RELEASE_FINGERPRINT"
-          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/release-hosts" -i "$RUNNER_TEMP/release-key" "$RELEASE_USER@$RELEASE_HOST" "publish $VERSION $SOURCE_SHA $CASESIM_SHA"
-      - name: Verify the public channel and exact downloaded bytes
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/release-hosts" -i "$RUNNER_TEMP/release-key" "$RELEASE_USER@$RELEASE_HOST" "publish $VERSION $SOURCE_SHA $CASESIM_SHA" > "$RUNNER_TEMP/release-receipt.json"
+      - name: Verify authenticated publication receipt and protected channel
         shell: bash
         run: |
           set -euo pipefail
-          base='https://releases.shaedy.de/casesim/windows'
-          curl --fail --silent --show-error "$base/latest.json" -o "$RUNNER_TEMP/latest.json"
-          jq -e --arg v "$VERSION" '.version == $v' "$RUNNER_TEMP/latest.json"
-          mkdir "$RUNNER_TEMP/release-check"
-          cd "$RUNNER_TEMP/release-check"
-          for file in "CaseSim_${VERSION}_x64-setup.exe" "CaseSim_${VERSION}_x64-setup.exe.sig" latest.json build-info.json SHA256SUMS.txt; do
-            curl --fail --silent --show-error "$base/desktop-v$VERSION/$file" -o "$file"
-          done
-          sha256sum --check SHA256SUMS.txt
-          cmp latest.json "$RUNNER_TEMP/latest.json"
-          jq -e --arg sha "$SOURCE_SHA" --arg casesim "$CASESIM_SHA" --arg v "$VERSION" '.commit == $sha and .casesim_commit == $casesim and .source == "https://github.com/shaedy180/CaseSim-Desktop" and .desktop_version == $v and .signature_version_bound == true' build-info.json
-          printf 'Published [CaseSim Desktop %s](%s/desktop-v%s/CaseSim_%s_x64-setup.exe) from Desktop `%s`, approved for CaseSim `%s`. Public hashes and identities verified.\n' "$VERSION" "$base" "$VERSION" "$VERSION" "$SOURCE_SHA" "$CASESIM_SHA" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/verify-release.mjs --receipt "$RUNNER_TEMP/release-receipt.json"
+          printf 'Published [CaseSim Desktop %s](https://releases.shaedy.de/) from Desktop `%s`, approved for CaseSim `%s`. Controller-verified signatures, identities and exact file hashes; browser login and native download grants required.\n' "$VERSION" "$SOURCE_SHA" "$CASESIM_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve verified non-secret publication receipt
+        uses: actions/upload-artifact@v7
+        with:
+          name: Desktop-${{ inputs.version }}-publication-receipt
+          path: ${{ runner.temp }}/release-receipt.json
+          if-no-files-found: error
+          retention-days: 90
