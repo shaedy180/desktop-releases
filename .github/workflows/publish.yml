@@ -1,5 +1,5 @@
 name: Publish Desktop
-run-name: CaseSim Desktop ${{ inputs.version }} from ${{ inputs.source_sha }}
+run-name: Desktop ${{ inputs.version }} from ${{ inputs.source_sha }} for CaseSim ${{ inputs.casesim_sha }}
 on:
   workflow_dispatch:
     inputs:
@@ -8,7 +8,11 @@ on:
         required: true
         type: string
       source_sha:
-        description: Full validated source SHA from the private preparation workflow
+        description: Full validated public CaseSim-Desktop source SHA from private preparation
+        required: true
+        type: string
+      casesim_sha:
+        description: Full approved CaseSim compatibility SHA from private preparation
         required: true
         type: string
 permissions:
@@ -27,6 +31,7 @@ jobs:
     env:
       VERSION: ${{ inputs.version }}
       SOURCE_SHA: ${{ inputs.source_sha }}
+      CASESIM_SHA: ${{ inputs.casesim_sha }}
       RELEASE_HOST: ${{ secrets.DESKTOP_PUBLISH_HOST }}
       RELEASE_USER: ${{ secrets.DESKTOP_PUBLISH_USER }}
       RELEASE_KEY: ${{ secrets.DESKTOP_PUBLISH_SSH_KEY }}
@@ -38,13 +43,14 @@ jobs:
           set -euo pipefail
           [[ "$VERSION" =~ ^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$ ]]
           [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CASESIM_SHA" =~ ^[a-f0-9]{40}$ ]]
           test -n "$RELEASE_HOST" && test -n "$RELEASE_USER" && test -n "$RELEASE_KEY"
           umask 077
           trap 'rm -f "$RUNNER_TEMP/release-key" "$RUNNER_TEMP/release-hosts"' EXIT
           printf '%s\n' "$RELEASE_KEY" > "$RUNNER_TEMP/release-key"
           ssh-keyscan -T 10 -t ed25519 "$RELEASE_HOST" > "$RUNNER_TEMP/release-hosts"
           test "$(ssh-keygen -lf "$RUNNER_TEMP/release-hosts" -E sha256 | awk '{print $2}')" = "$RELEASE_FINGERPRINT"
-          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/release-hosts" -i "$RUNNER_TEMP/release-key" "$RELEASE_USER@$RELEASE_HOST" "publish $VERSION $SOURCE_SHA"
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/release-hosts" -i "$RUNNER_TEMP/release-key" "$RELEASE_USER@$RELEASE_HOST" "publish $VERSION $SOURCE_SHA $CASESIM_SHA"
       - name: Verify the public channel and exact downloaded bytes
         shell: bash
         run: |
@@ -59,5 +65,5 @@ jobs:
           done
           sha256sum --check SHA256SUMS.txt
           cmp latest.json "$RUNNER_TEMP/latest.json"
-          jq -e --arg sha "$SOURCE_SHA" --arg v "$VERSION" '.commit == $sha and .desktop_version == $v and .signature_version_bound == true' build-info.json
-          printf 'Published [CaseSim Desktop %s](%s/desktop-v%s/CaseSim_%s_x64-setup.exe) from `%s`. Public hashes and channel identity verified.\n' "$VERSION" "$base" "$VERSION" "$VERSION" "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          jq -e --arg sha "$SOURCE_SHA" --arg casesim "$CASESIM_SHA" --arg v "$VERSION" '.commit == $sha and .casesim_commit == $casesim and .source == "https://github.com/shaedy180/CaseSim-Desktop" and .desktop_version == $v and .signature_version_bound == true' build-info.json
+          printf 'Published [CaseSim Desktop %s](%s/desktop-v%s/CaseSim_%s_x64-setup.exe) from Desktop `%s`, approved for CaseSim `%s`. Public hashes and identities verified.\n' "$VERSION" "$base" "$VERSION" "$VERSION" "$SOURCE_SHA" "$CASESIM_SHA" >> "$GITHUB_STEP_SUMMARY"
