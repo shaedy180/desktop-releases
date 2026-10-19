@@ -1,4 +1,5 @@
 name: Publish Desktop
+run-name: CaseSim Desktop ${{ inputs.version }} from ${{ inputs.source_sha }}
 on:
   workflow_dispatch:
     inputs:
