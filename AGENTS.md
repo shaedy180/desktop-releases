@@ -25,3 +25,9 @@ artifacts or downgrade latest.json. Public Desktop CI/provenance, approved priva
 CaseSim CI/images, private signed Windows rebuilds and installed runtime tests remain
 prerequisites. Never import application source or signing/upload capability here.
 This workflow does not deploy the hosted game, reset data or change auth/economy.
+
+All release-host pages and files require shaedy-auth. Never add anonymous download
+exceptions, user-agent bypasses, static download secrets or a user's browser cookie
+to CI. Verify controller receipts over the existing restricted SSH capability and
+require protected HTTPS access before and after promotion. Preserve receipt hashes,
+signature/source checks, private/no-store caching and scoped native authorization.

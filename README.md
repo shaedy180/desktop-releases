@@ -21,7 +21,8 @@ version and both source SHAs. The root-owned server controller independently ver
 Ed25519 signatures, the signed version, public Desktop source owner, both approved
 source identities, private preparation identity, expected URLs and SHA-256
 before publishing. Published versions are immutable and downgrades are refused.
-The manifest switches atomically after all versioned assets are public.
+The manifest switches atomically after all versioned assets are installed behind
+the authenticated release gate.
 
 The protected environment uses `DESKTOP_PUBLISH_HOST`, `DESKTOP_PUBLISH_USER`,
 `DESKTOP_PUBLISH_SSH_KEY`, `DESKTOP_PUBLISH_HOST_FINGERPRINT`. Private keys never
@@ -32,11 +33,25 @@ build-info.json records Desktop commit/source, casesim_commit compatibility iden
 preparation_commit, Desktop version and installer hash. Public CI never imports
 private game code and unsigned preview artifacts cannot become official releases.
 
-The workflow verifies public manifest/both source identities and downloads all package
-assets to check their hashes. The public channel is
+The workflow first requires login redirects on every anonymous release path,
+including HEAD/Range, missing files and spoofed client/forwarded headers. Invalid
+native bearer grants must return 401. It then promotes through the existing
+authenticated, host-key-pinned SSH capability. The controller independently checks
+the five files, signatures, expected manifest URL, immutable source identities and
+atomic latest manifest before returning a JSON receipt with exact SHA-256 hashes.
+The workflow validates this receipt and repeats the HTTPS gate checks, preserving
+the non-secret receipt for 90 days. CI tests reject receipt tampering, public bytes,
+wrong login destinations and caching leaks. No installer, user cookie or machine
+bypass token is uploaded to this public repository.
+
+Every browser page, manifest and package requires shaedy-auth. The native updater
+obtains a maximum ten-minute, user/session-bound download grant through explicit
+system-browser consent and PKCE; logout/revocation blocks subsequent requests.
+Release responses use private/no-store caching. The authenticated channel is
 `https://releases.shaedy.de/casesim/windows/latest.json`; immutable downloads live
 under `casesim/windows/desktop-vVERSION/`. Release metadata and source commit IDs
-are public. A Tauri updater signature authenticates updates; Windows Authenticode
+are recorded in build details and the public non-secret approval receipt.
+A Tauri updater signature authenticates updates; Windows Authenticode
 status is recorded separately in each build's metadata.
 
 Keep previous assets. Stop publication on failure; fix a faulty release with a
