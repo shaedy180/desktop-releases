@@ -12,6 +12,8 @@ installer from the public native source, tests the installed application and sta
 the package privately through an upload-only server key. This repository has no
 application source, signing key, broad GitHub token or upload capability.
 
+PR validation receipts are kept for 14 days and plain CI build artifacts for 7 days (`retention-days` in the workflows). Merge within 14 days of the last green PR run, otherwise rerun the complete PR workflow first.
+
 Run **Publish Desktop** on `main` with the exact staged version and full 40-character
 Desktop source SHA and approved CaseSim compatibility SHA recorded by private
 preparation. Review that evidence and
