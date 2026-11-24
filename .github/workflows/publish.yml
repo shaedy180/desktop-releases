@@ -37,9 +37,9 @@ jobs:
       RELEASE_KEY: ${{ secrets.DESKTOP_PUBLISH_SSH_KEY }}
       RELEASE_FINGERPRINT: ${{ secrets.DESKTOP_PUBLISH_HOST_FINGERPRINT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with: {persist-credentials: false}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: {node-version: 24}
       - name: Require protected hosting before any promotion
         run: node scripts/verify-release.mjs --gate
@@ -64,7 +64,7 @@ jobs:
           node scripts/verify-release.mjs --receipt "$RUNNER_TEMP/release-receipt.json"
           printf 'Published [CaseSim Desktop %s](https://releases.shaedy.de/) from Desktop `%s`, approved for CaseSim `%s`. Controller-verified signatures, identities and exact file hashes; browser login and native download grants required.\n' "$VERSION" "$SOURCE_SHA" "$CASESIM_SHA" >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve verified non-secret publication receipt
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Desktop-${{ inputs.version }}-publication-receipt
           path: ${{ runner.temp }}/release-receipt.json
